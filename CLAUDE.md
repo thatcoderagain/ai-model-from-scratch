@@ -25,17 +25,18 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 | 2 | **Tokenizer** (BPE) | DONE | 36 | `phase2_tokenizer/bpe_tokenizer.py` |
 | 3 | **Transformer** (PyTorch) | DONE | 25 | `phase3_transformer/model.py` + 6 modules |
 | 4 | **Training** pipeline | DONE | 18 | `phase4_training/trainer.py`, `train.py`, configs |
-| 5 | **Generation** & eval | TODO | — | `phase5_generation/generate.py`, `kv_cache.py` |
+| 5 | **Generation** & eval | DONE | 17 | `phase5_generation/generate.py`, `kv_cache.py`, `evaluate.py`, `interactive.py` |
 | 6 | **Fine-tune** SmolLM2-360M | TODO | — | `phase6_finetune/lora.py`, `finetune.py` |
 | 7 | **Agent** (coding assistant) | TODO | — | `phase7_agent/agent.py`, `cli.py` |
 
-**Total tests passing: 108**
+**Total tests passing: 125**
 
 ### What's been built
 - Phase 1: 4 notebooks (NN, backprop, attention, modern components) with terminology glossaries
 - Phase 2: Byte-level BPE tokenizer with train/encode/decode/save/load + special tokens
 - Phase 3: Full Llama-style transformer — RoPE, RMSNorm, GQA, SwiGLU, ~15M params, weight tying
 - Phase 4: Training pipeline — dataset loading (TinyStories/FineWeb-Edu), WSD scheduler, multi-device trainer (CUDA fp16 / MPS fp32), gradient accumulation, checkpointing
+- Phase 5: Generation — temperature/top-k/top-p/repetition penalty, KV-cache, perplexity evaluation, interactive REPL with streaming
 
 ### How to train the model
 ```bash
@@ -46,11 +47,18 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 .venv/bin/python3 -m phase4_training.train --config phase4_training/configs/small.yaml
 ```
 
-### Next up: Phase 5 (Generation & Evaluation)
-- `generate.py` — temperature, top-k, top-p decoding strategies
-- `kv_cache.py` — cache K/V for fast autoregressive inference
-- `evaluate.py` — perplexity measurement
-- `interactive.py` — REPL for chatting with the model
+### How to interact with a trained model
+```bash
+# Interactive REPL (after training)
+.venv/bin/python3 -m phase5_generation.interactive --checkpoint checkpoints/best.pt
+```
+
+### Next up: Phase 6 (Fine-tune SmolLM2-360M)
+- `download_model.py` — download SmolLM2-360M from HuggingFace
+- `lora.py` — LoRA implementation from scratch
+- `finetune.py` — LoRA fine-tuning on code instruction data (train on ROG 3090)
+- `dpo.py` — DPO alignment (optional)
+- `convert_to_mlx.py` + `quantize.py` — convert to MLX + 4-bit for fast MacBook inference
 
 ## Development Conventions
 - Phase 1: Jupyter notebooks (foundations/visualization)
