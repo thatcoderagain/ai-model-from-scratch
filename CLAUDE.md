@@ -17,14 +17,31 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 - **WSD schedule** (not cosine decay)
 - **DPO** (not RLHF)
 
-## Project Phases
-1. **Foundations** (numpy only) — neural nets, backprop, attention, modern components
-2. **Tokenizer** — byte-level BPE from scratch
-3. **Transformer** — Llama-style 15M param model in PyTorch
-4. **Training** — WSD schedule, AdamW, FineWeb-Edu dataset, train on 3090
-5. **Generation** — KV-cache, top-k/top-p, interactive REPL
-6. **Fine-tune** — LoRA on SmolLM2-360M, DPO, convert to MLX + quantize
-7. **Agent** — ReAct + Reflection, function calling, sandboxed code exec, CLI
+## Phase Checklist
+
+| # | Phase | Status | Tests | Key Files |
+|---|---|---|---|---|
+| 1 | **Foundations** (numpy) | DONE | 29 | `phase1_foundations/01-04_*.ipynb` |
+| 2 | **Tokenizer** (BPE) | DONE | 36 | `phase2_tokenizer/bpe_tokenizer.py` |
+| 3 | **Transformer** (PyTorch) | DONE | 25 | `phase3_transformer/model.py` + 6 modules |
+| 4 | **Training** pipeline | TODO | — | `phase4_training/trainer.py`, `train.py` |
+| 5 | **Generation** & eval | TODO | — | `phase5_generation/generate.py`, `kv_cache.py` |
+| 6 | **Fine-tune** SmolLM2-360M | TODO | — | `phase6_finetune/lora.py`, `finetune.py` |
+| 7 | **Agent** (coding assistant) | TODO | — | `phase7_agent/agent.py`, `cli.py` |
+
+**Total tests passing: 90**
+
+### What's been built
+- Phase 1: 4 notebooks (NN, backprop, attention, modern components) with terminology glossaries
+- Phase 2: Byte-level BPE tokenizer with train/encode/decode/save/load + special tokens
+- Phase 3: Full Llama-style transformer — RoPE, RMSNorm, GQA, SwiGLU, ~15M params, weight tying
+
+### Next up: Phase 4 (Training)
+- `dataset.py` — load FineWeb-Edu, tokenize, create sliding-window examples
+- `trainer.py` — multi-device (CUDA/MPS), fp16 on 3090, gradient accumulation
+- `lr_schedule.py` — WSD (warmup-stable-decay) learning rate schedule
+- `train.py` — CLI entry point with YAML configs
+- Train on ROG SCAR 17 (RTX 3090) for ~2 hours
 
 ## Development Conventions
 - Phase 1: Jupyter notebooks (foundations/visualization)
