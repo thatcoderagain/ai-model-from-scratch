@@ -1,0 +1,30 @@
+[project]
+name = "local-llm"
+version = "0.1.0"
+description = "Build an AI language model from scratch — modern Llama-style architecture"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.2",
+    "numpy>=1.26",
+    "datasets>=2.16",
+    "tqdm",
+    "pyyaml",
+    "matplotlib",
+    "huggingface-hub",
+    "transformers",
+]
+
+[project.optional-dependencies]
+mlx = [
+    "mlx>=0.18",
+    "mlx-lm>=0.20",
+]
+dev = [
+    "pytest",
+    "jupyter",
+    "ipykernel",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
