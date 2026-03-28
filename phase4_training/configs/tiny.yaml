@@ -1,0 +1,33 @@
+# Tiny config — for quick smoke tests on any hardware
+# ~100K params, trains in seconds
+
+model:
+  vocab_size: 4096
+  n_layer: 2
+  n_head: 2
+  n_kv_head: 1
+  n_embd: 64
+  block_size: 128
+  ffn_hidden: 172
+  dropout: 0.1
+  bias: false
+
+training:
+  max_steps: 100
+  micro_batch_size: 4
+  grad_accum_steps: 1
+  max_lr: 1.0e-3
+  min_lr: 1.0e-4
+  weight_decay: 0.1
+  grad_clip: 1.0
+  warmup_fraction: 0.1
+  decay_fraction: 0.2
+
+  # Logging
+  log_interval: 10
+  eval_interval: 50
+  checkpoint_interval: 100
+
+  # Data
+  data_source: "tinystories"
+  max_chars: 500000  # 500KB for quick test
