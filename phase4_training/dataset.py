@@ -107,17 +107,22 @@ def _load_tinystories(tokenizer, max_chars, cache_path):
         return np.load(cache_file)
 
     print("Downloading TinyStories from HuggingFace...")
+    print("(This may take a few minutes on first run)")
+    import sys
     from datasets import load_dataset
     ds = load_dataset("roneneldan/TinyStories", split="train")
+    print(f"Dataset loaded: {len(ds)} stories")
 
     # Concatenate all stories with end-of-text separator
     texts = []
     total_chars = 0
-    for item in ds:
+    for i, item in enumerate(ds):
         text = item["text"].strip()
         if text:
             texts.append(text)
             total_chars += len(text)
+            if i % 50000 == 0 and i > 0:
+                print(f"  Reading stories: {i:,} stories, {total_chars:,} chars...", flush=True)
             if max_chars and total_chars >= max_chars:
                 break
 
@@ -125,8 +130,19 @@ def _load_tinystories(tokenizer, max_chars, cache_path):
     if max_chars:
         corpus = corpus[:max_chars]
 
-    print(f"Tokenizing {len(corpus):,} characters...")
-    tokens = tokenize_corpus(corpus, tokenizer)
+    print(f"Tokenizing {len(corpus):,} characters (this may take a while)...")
+    sys.stdout.flush()
+
+    # Tokenize in chunks with progress reporting
+    chunk_size = 500_000  # tokenize 500KB at a time
+    all_tokens = []
+    for start in range(0, len(corpus), chunk_size):
+        chunk = corpus[start:start + chunk_size]
+        all_tokens.extend(tokenizer.encode(chunk))
+        done_pct = min(100, (start + chunk_size) * 100 // len(corpus))
+        print(f"  Tokenizing: {done_pct}% ({len(all_tokens):,} tokens so far)...", flush=True)
+
+    tokens = np.array(all_tokens, dtype=np.int32)
 
     np.save(cache_file, tokens)
     print(f"Cached {len(tokens):,} tokens to {cache_file}")

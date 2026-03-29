@@ -31,4 +31,5 @@ training:
 
   # Data
   data_source: "tinystories"   # or "fineweb-edu"
-  max_chars: null              # null = use full dataset
+  max_chars: 10000000          # 10MB — good balance of quality and tokenization speed
+                               # Set to null for full dataset (slow tokenization with our BPE)
