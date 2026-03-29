@@ -7,7 +7,7 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 
 ## Hardware
 - **MacBook M4** (16GB RAM): Primary coding + local inference via MLX
-- **ASUS ROG SCAR 17** (32GB RAM, RTX 3090 16GB VRAM): Heavy training (CUDA, fp16, Flash Attention 2)
+- **ASUS ROG SCAR 17** (32GB RAM, RTX 3080 16GB VRAM): Heavy training (CUDA, fp16, Flash Attention 2)
 
 ## Architecture Choices (2025-era, NOT GPT-2)
 - **RoPE** (not learned positional embeddings)
@@ -91,32 +91,103 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 5. Quantize: `python -m phase6_finetune.quantize --input checkpoints/mlx_model` (MacBook)
 6. Run agent: `python -m phase7_agent.cli --model checkpoints/mlx_model_q4` (MacBook)
 
+## Setup Guide
+
+### MacBook M4 (primary development + inference)
+
+```bash
+# 1. Create virtual environment
+uv venv && source .venv/bin/activate
+
+# 2. Install dependencies (PyTorch ships with MPS support by default)
+uv pip install -e ".[dev]"
+
+# 3. Install MLX for fast Apple Silicon inference (Phase 6-7)
+uv pip install -e ".[mlx]"
+
+# 4. Verify MPS works
+python3 -c "import torch; print('MPS:', torch.backends.mps.is_available())"
+# Should print: MPS: True
+```
+
+**Training on MacBook** (slower but works for debugging):
+- Trains in fp32 (MPS doesn't reliably support fp16)
+- Reduce batch size if you get OOM: edit `small.yaml` → `micro_batch_size: 4`
+- Expect ~4-8h for full training vs ~2h on ROG
+- Good for smoke tests: `python3 -m phase4_training.train --config phase4_training/configs/tiny.yaml`
+
+### ASUS ROG SCAR 17 (training machine)
+
+```bash
+# 1. Create virtual environment
+uv venv && source .venv/bin/activate
+
+# 2. Check CUDA version (look at top-right of output)
+nvidia-smi
+
+# 3. Install PyTorch WITH CUDA support
+#    IMPORTANT: default "uv pip install torch" installs CPU-only!
+#    Match the --index-url to your CUDA version from nvidia-smi:
+#
+#    CUDA 11.8:  --index-url https://download.pytorch.org/whl/cu118
+#    CUDA 12.1+: --index-url https://download.pytorch.org/whl/cu121
+#    CUDA 12.4+: --index-url https://download.pytorch.org/whl/cu124
+#
+#    Our ROG has CUDA 13.2, so we use cu124 (backwards compatible):
+uv pip install torch --index-url https://download.pytorch.org/whl/cu124
+
+# 4. Install remaining dependencies
+uv pip install -e ".[dev]"
+
+# 5. Verify CUDA works
+python3 -c "import torch; print('CUDA:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0))"
+# Should print:
+#   CUDA: True
+#   GPU: NVIDIA GeForce RTX 3080
+```
+
+**If CUDA shows False after install:**
+```bash
+# Uninstall and reinstall
+uv pip uninstall torch
+uv pip install torch --index-url https://download.pytorch.org/whl/cu124
+```
+
+### Syncing between machines
+
+```bash
+# On MacBook: push code
+git add -A && git commit -m "updates" && git push
+
+# On ROG: pull and train
+git pull
+python3 -m phase4_training.train --config phase4_training/configs/small.yaml
+
+# After training: push checkpoint info
+git add checkpoints/ && git commit -m "trained model" && git push
+
+# On MacBook: pull checkpoint and run inference
+git pull
+python3 -m phase5_generation.interactive --checkpoint checkpoints/best.pt
+```
+
 ## Development Conventions
 - Phase 1: Jupyter notebooks (foundations/visualization)
 - Phase 2-7: Python scripts
 - **Always include tests** — every module gets a test file to ensure robustness
-- Run tests: `python -m pytest tests/ -v`
 - Virtual env: `.venv/` (created via `uv venv`)
 - Use `.venv/bin/python3` to run scripts
 
-## Testing Strategy
-- Each phase has test files (e.g., `tests/test_phase1.py`, `tests/test_tokenizer.py`)
-- Tests verify core logic works and prevent regressions
-- Run `pytest` before moving to the next phase
-
-## Key Commands
+## Testing
 ```bash
-# Setup
-uv venv && uv pip install -e ".[dev]"
-
-# Run tests
+# Run all tests (should pass on both machines)
 .venv/bin/python3 -m pytest tests/ -v
 
-# Run a notebook
-.venv/bin/jupyter notebook phase1_foundations/
+# Run a specific phase's tests
+.venv/bin/python3 -m pytest tests/test_phase1.py -v
 
-# Training (on ROG SCAR 17)
-.venv/bin/python3 -m phase4_training.train --config phase4_training/configs/small.yaml
+# Run notebooks
+.venv/bin/jupyter notebook phase1_foundations/
 ```
 
 ## File Structure
