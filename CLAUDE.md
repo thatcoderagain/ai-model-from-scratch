@@ -26,10 +26,10 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 | 3 | **Transformer** (PyTorch) | DONE | 25 | `phase3_transformer/model.py` + 6 modules |
 | 4 | **Training** pipeline | DONE | 18 | `phase4_training/trainer.py`, `train.py`, configs |
 | 5 | **Generation** & eval | DONE | 17 | `phase5_generation/generate.py`, `kv_cache.py`, `evaluate.py`, `interactive.py` |
-| 6 | **Fine-tune** SmolLM2-360M | TODO | — | `phase6_finetune/lora.py`, `finetune.py` |
+| 6 | **Fine-tune** SmolLM2-360M | DONE | 15 | `phase6_finetune/lora.py`, `finetune.py`, `dpo.py`, `convert_to_mlx.py`, `quantize.py` |
 | 7 | **Agent** (coding assistant) | TODO | — | `phase7_agent/agent.py`, `cli.py` |
 
-**Total tests passing: 125**
+**Total tests passing: 140**
 
 ### What's been built
 - Phase 1: 4 notebooks (NN, backprop, attention, modern components) with terminology glossaries
@@ -37,6 +37,7 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 - Phase 3: Full Llama-style transformer — RoPE, RMSNorm, GQA, SwiGLU, ~15M params, weight tying
 - Phase 4: Training pipeline — dataset loading (TinyStories/FineWeb-Edu), WSD scheduler, multi-device trainer (CUDA fp16 / MPS fp32), gradient accumulation, checkpointing
 - Phase 5: Generation — temperature/top-k/top-p/repetition penalty, KV-cache, perplexity evaluation, interactive REPL with streaming
+- Phase 6: Fine-tuning — LoRA from scratch, SmolLM2 download, instruction dataset, DPO alignment, MLX conversion + quantization
 
 ### How to train the model
 ```bash
@@ -53,12 +54,29 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 .venv/bin/python3 -m phase5_generation.interactive --checkpoint checkpoints/best.pt
 ```
 
-### Next up: Phase 6 (Fine-tune SmolLM2-360M)
-- `download_model.py` — download SmolLM2-360M from HuggingFace
-- `lora.py` — LoRA implementation from scratch
-- `finetune.py` — LoRA fine-tuning on code instruction data (train on ROG 3090)
-- `dpo.py` — DPO alignment (optional)
-- `convert_to_mlx.py` + `quantize.py` — convert to MLX + 4-bit for fast MacBook inference
+### How to fine-tune SmolLM2
+```bash
+# Download model
+.venv/bin/python3 -m phase6_finetune.download_model --model SmolLM2-360M
+
+# Fine-tune with LoRA (ROG SCAR 17, ~3-5h)
+.venv/bin/python3 -m phase6_finetune.finetune
+
+# Quick test (any hardware, ~2 min)
+.venv/bin/python3 -m phase6_finetune.finetune --max-examples 100 --max-steps 50
+
+# Convert to MLX + quantize (MacBook)
+.venv/bin/python3 -m phase6_finetune.convert_to_mlx --input checkpoints/finetune/merged_model
+.venv/bin/python3 -m phase6_finetune.quantize --input checkpoints/mlx_model --bits 4
+```
+
+### Next up: Phase 7 (Agentic Coding Assistant)
+- `tools/base.py` — tool interface + code executor, file ops, shell
+- `agent.py` — ReAct + Reflection loop
+- `function_calling.py` — structured JSON tool use with constrained decoding
+- `memory.py` — conversation context management
+- `inference.py` — MLX inference engine
+- `cli.py` — terminal interface
 
 ## Development Conventions
 - Phase 1: Jupyter notebooks (foundations/visualization)
