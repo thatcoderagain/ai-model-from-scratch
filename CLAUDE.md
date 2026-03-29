@@ -27,9 +27,9 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 | 4 | **Training** pipeline | DONE | 18 | `phase4_training/trainer.py`, `train.py`, configs |
 | 5 | **Generation** & eval | DONE | 17 | `phase5_generation/generate.py`, `kv_cache.py`, `evaluate.py`, `interactive.py` |
 | 6 | **Fine-tune** SmolLM2-360M | DONE | 15 | `phase6_finetune/lora.py`, `finetune.py`, `dpo.py`, `convert_to_mlx.py`, `quantize.py` |
-| 7 | **Agent** (coding assistant) | TODO | — | `phase7_agent/agent.py`, `cli.py` |
+| 7 | **Agent** (coding assistant) | DONE | 27 | `phase7_agent/agent.py`, `cli.py`, tools, function calling, memory |
 
-**Total tests passing: 140**
+**ALL PHASES COMPLETE — 167 tests passing**
 
 ### What's been built
 - Phase 1: 4 notebooks (NN, backprop, attention, modern components) with terminology glossaries
@@ -38,6 +38,7 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 - Phase 4: Training pipeline — dataset loading (TinyStories/FineWeb-Edu), WSD scheduler, multi-device trainer (CUDA fp16 / MPS fp32), gradient accumulation, checkpointing
 - Phase 5: Generation — temperature/top-k/top-p/repetition penalty, KV-cache, perplexity evaluation, interactive REPL with streaming
 - Phase 6: Fine-tuning — LoRA from scratch, SmolLM2 download, instruction dataset, DPO alignment, MLX conversion + quantization
+- Phase 7: Agent — ReAct+Reflection loop, sandboxed code execution, file/shell tools, structured function calling, conversation memory, CLI
 
 ### How to train the model
 ```bash
@@ -70,13 +71,25 @@ Build a modern AI language model from scratch for deep understanding, then fine-
 .venv/bin/python3 -m phase6_finetune.quantize --input checkpoints/mlx_model --bits 4
 ```
 
-### Next up: Phase 7 (Agentic Coding Assistant)
-- `tools/base.py` — tool interface + code executor, file ops, shell
-- `agent.py` — ReAct + Reflection loop
-- `function_calling.py` — structured JSON tool use with constrained decoding
-- `memory.py` — conversation context management
-- `inference.py` — MLX inference engine
-- `cli.py` — terminal interface
+### How to run the agent
+```bash
+# Demo mode (no model needed — tests the agent framework)
+.venv/bin/python3 -m phase7_agent.cli --demo
+
+# With a HuggingFace model (downloads automatically)
+.venv/bin/python3 -m phase7_agent.cli --hf-model HuggingFaceTB/SmolLM2-360M
+
+# With your fine-tuned MLX model (after Phase 6 training)
+.venv/bin/python3 -m phase7_agent.cli --model checkpoints/mlx_model_q4
+```
+
+### End-to-end pipeline
+1. Train scratch model: `python -m phase4_training.train --config phase4_training/configs/small.yaml` (ROG)
+2. Download SmolLM2: `python -m phase6_finetune.download_model`
+3. Fine-tune with LoRA: `python -m phase6_finetune.finetune` (ROG)
+4. Convert to MLX: `python -m phase6_finetune.convert_to_mlx --input checkpoints/finetune/merged_model` (MacBook)
+5. Quantize: `python -m phase6_finetune.quantize --input checkpoints/mlx_model` (MacBook)
+6. Run agent: `python -m phase7_agent.cli --model checkpoints/mlx_model_q4` (MacBook)
 
 ## Development Conventions
 - Phase 1: Jupyter notebooks (foundations/visualization)
