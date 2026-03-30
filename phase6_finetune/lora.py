@@ -171,14 +171,24 @@ def apply_lora(model, target_modules=None, rank=32, alpha=None, dropout=0.0):
 
 
 def merge_lora_weights(model):
-    """Merge all LoRA adapters back into the base weights.
+    """Merge all LoRA adapters back into the base weights and remove LoRA wrappers.
 
-    After this, the model runs at normal speed with no LoRA overhead.
+    After this, the model is a clean standard model with no LoRA artifacts.
+    The merged weights live in the original nn.Linear layers.
     Call this after fine-tuning, before saving for deployment.
     """
+    # Step 1: Merge A @ B into original weights
     merged = 0
     for module in model.modules():
         if isinstance(module, LoRALinear):
             module.merge_weights()
             merged += 1
-    print(f"Merged {merged} LoRA adapters into base weights")
+
+    # Step 2: Replace LoRALinear wrappers with their original nn.Linear
+    # This strips lora_A, lora_B from the state dict so save_pretrained is clean
+    for name, module in model.named_modules():
+        for child_name, child in module.named_children():
+            if isinstance(child, LoRALinear):
+                setattr(module, child_name, child.original)
+
+    print(f"Merged {merged} LoRA adapters and stripped wrappers")

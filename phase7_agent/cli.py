@@ -1,13 +1,14 @@
 """Terminal interface for the agentic coding assistant.
 
 Usage:
-    # With a fine-tuned SmolLM2 model (MLX)
+    # With MLX quantized model (fastest on MacBook)
     python -m phase7_agent.cli --model checkpoints/mlx_model_q4
 
-    # With a HuggingFace model (for testing before fine-tuning)
+    # With a HuggingFace model (merged or from hub)
+    python -m phase7_agent.cli --hf-model checkpoints/finetune/merged_model
     python -m phase7_agent.cli --hf-model HuggingFaceTB/SmolLM2-360M
 
-    # Demo mode (uses a simple echo function instead of a real model)
+    # Demo mode (uses a scripted function instead of a real model)
     python -m phase7_agent.cli --demo
 
 Commands:
@@ -25,11 +26,7 @@ from phase7_agent.tools.shell import ShellExecutor
 
 
 def create_demo_generate_fn():
-    """Create a simple demo generate function for testing the agent loop.
-
-    This doesn't use a real model — it just demonstrates the agent framework.
-    Replace with a real model for actual use.
-    """
+    """Create a simple demo generate function for testing the agent loop."""
     step = [0]
 
     def generate(prompt):
@@ -47,29 +44,52 @@ def create_demo_generate_fn():
 class SimpleTokenizer:
     """Minimal tokenizer for memory management (word-level approximation)."""
     def encode(self, text):
-        return text.split()  # rough approximation: 1 word ≈ 1 token
+        return text.split()
 
 
-def create_hf_generate_fn(model_name, device="auto"):
-    """Create a generate function using a HuggingFace model."""
-    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-    import torch
+def create_mlx_generate_fn(model_path):
+    """Create a generate function using MLX (fast on Apple Silicon)."""
+    from mlx_lm import load, generate as mlx_generate
 
-    print(f"Loading {model_name}...")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=torch.float16 if device != "cpu" else torch.float32,
-        device_map=device,
-    )
-
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer,
-                     max_new_tokens=256, temperature=0.7, top_p=0.9,
-                     do_sample=True)
+    print(f"Loading MLX model from {model_path}...")
+    model, tokenizer = load(model_path)
+    print(f"Model loaded.")
 
     def generate(prompt):
-        result = pipe(prompt, return_full_text=False)
-        return result[0]["generated_text"]
+        response = mlx_generate(
+            model, tokenizer, prompt=prompt,
+            max_tokens=256,
+        )
+        return response if response else ""
+
+    return generate, tokenizer
+
+
+def create_hf_generate_fn(model_name):
+    """Create a generate function using a HuggingFace model."""
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+
+    print(f"Loading {model_name} on {device}...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, dtype=torch.float32,
+    ).to(device)
+    model.eval()
+
+    def generate(prompt):
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs, max_new_tokens=256,
+                temperature=0.7, top_p=0.9, do_sample=True,
+            )
+        # Decode only the generated part (not the prompt)
+        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+        return tokenizer.decode(new_tokens, skip_special_tokens=True)
 
     return generate, tokenizer
 
@@ -77,8 +97,10 @@ def create_hf_generate_fn(model_name, device="auto"):
 def main():
     parser = argparse.ArgumentParser(description="Agentic coding assistant")
     parser.add_argument("--demo", action="store_true", help="Run in demo mode (no real model)")
-    parser.add_argument("--hf-model", type=str, default=None, help="HuggingFace model ID")
-    parser.add_argument("--model", type=str, default=None, help="Path to local MLX model")
+    parser.add_argument("--hf-model", type=str, default=None,
+                        help="HuggingFace model path or ID (e.g., checkpoints/finetune/merged_model)")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Path to MLX model (e.g., checkpoints/mlx_model_q4)")
     args = parser.parse_args()
 
     # --- Set up tools ---
@@ -94,16 +116,15 @@ def main():
         print("Running in DEMO mode (no real model)")
         generate_fn = create_demo_generate_fn()
         tokenizer = SimpleTokenizer()
+    elif args.model:
+        generate_fn, tokenizer = create_mlx_generate_fn(args.model)
     elif args.hf_model:
         generate_fn, tokenizer = create_hf_generate_fn(args.hf_model)
-    elif args.model:
-        # MLX inference (to be implemented with fine-tuned model)
-        print(f"MLX model loading from {args.model} (not yet implemented)")
-        print("Use --demo or --hf-model for now.")
-        return
     else:
-        print("No model specified. Use --demo, --hf-model, or --model.")
-        print("Example: python -m phase7_agent.cli --demo")
+        print("No model specified. Options:")
+        print("  --model checkpoints/mlx_model_q4          (MLX, fastest on MacBook)")
+        print("  --hf-model checkpoints/finetune/merged_model  (HuggingFace)")
+        print("  --demo                                     (no model, test framework)")
         return
 
     # --- Create agent ---

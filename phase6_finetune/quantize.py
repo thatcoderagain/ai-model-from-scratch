@@ -51,7 +51,11 @@ def quantize_mlx_model(input_dir, output_dir=None, bits=4, group_size=64):
     if output_dir is None:
         output_dir = input_dir.parent / f"{input_dir.name}_q{bits}"
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # mlx_lm.convert creates the output dir itself — remove if it exists
+    if output_dir.exists():
+        import shutil
+        shutil.rmtree(output_dir)
 
     print(f"Quantizing {input_dir} → {output_dir}")
     print(f"  Bits: {bits}, Group size: {group_size}")

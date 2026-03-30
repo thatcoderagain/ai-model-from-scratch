@@ -37,7 +37,11 @@ def convert_hf_to_mlx(input_dir, output_dir):
 
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # mlx_lm.convert creates the output dir itself — remove if it exists
+    if output_dir.exists():
+        import shutil
+        shutil.rmtree(output_dir)
 
     print(f"Converting {input_dir} → {output_dir}")
     convert(str(input_dir), mlx_path=str(output_dir))
