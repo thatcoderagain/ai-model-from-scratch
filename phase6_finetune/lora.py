@@ -74,11 +74,13 @@ class LoRALinear(nn.Module):
         for param in self.original.parameters():
             param.requires_grad = False
 
-        # LoRA adapter matrices
+        # LoRA adapter matrices — create on the same device as the original weights
         # A: projects DOWN to low rank (in_features → rank)
         # B: projects UP from low rank (rank → out_features)
-        self.lora_A = nn.Parameter(torch.empty(in_features, rank))
-        self.lora_B = nn.Parameter(torch.zeros(rank, out_features))
+        device = original_linear.weight.device
+        dtype = original_linear.weight.dtype
+        self.lora_A = nn.Parameter(torch.empty(in_features, rank, device=device, dtype=dtype))
+        self.lora_B = nn.Parameter(torch.zeros(rank, out_features, device=device, dtype=dtype))
 
         # Initialize A with scaled normal distribution
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
