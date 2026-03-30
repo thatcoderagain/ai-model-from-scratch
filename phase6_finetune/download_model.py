@@ -104,9 +104,8 @@ def load_pretrained(model_path, device="cpu"):
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.float16 if device != "cpu" else torch.float32,
-        device_map=device,
-    )
+        dtype=torch.float16 if device != "cpu" else torch.float32,
+    ).to(device)
 
     print(f"Model loaded: {sum(p.numel() for p in model.parameters()):,} parameters")
     return model, tokenizer
