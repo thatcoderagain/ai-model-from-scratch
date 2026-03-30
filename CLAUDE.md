@@ -1,203 +1,149 @@
 # Local LLM — Build an AI Model from Scratch
 
-> **Full detailed plan**: See [PLAN.md](PLAN.md) for the comprehensive implementation plan with architecture details, code snippets, dataset choices, and training configs.
+> **Full detailed plan**: See [PLAN.md](PLAN.md) for architecture details, paper references, and design decisions.
 
 ## Project Goal
 Build a modern AI language model from scratch for deep understanding, then fine-tune an existing small model into a local agentic coding assistant.
 
 ## Hardware
 - **MacBook M4** (16GB RAM): Primary coding + local inference via MLX
-- **ASUS ROG SCAR 17** (32GB RAM, RTX 3080 16GB VRAM): Heavy training (CUDA, fp16, Flash Attention 2)
-
-## Architecture Choices (2025-era, NOT GPT-2)
-- **RoPE** (not learned positional embeddings)
-- **RMSNorm** (not LayerNorm)
-- **SwiGLU** (not GELU)
-- **Grouped Query Attention** (not standard MHA)
-- **WSD schedule** (not cosine decay)
-- **DPO** (not RLHF)
+- **ASUS ROG SCAR 17** (32GB RAM, RTX 3080 16GB VRAM): Heavy training (CUDA, fp16)
 
 ## Phase Checklist
 
-| # | Phase | Status | Tests | Key Files |
-|---|---|---|---|---|
-| 1 | **Foundations** (numpy) | DONE | 29 | `phase1_foundations/01-04_*.ipynb` |
-| 2 | **Tokenizer** (BPE) | DONE | 36 | `phase2_tokenizer/bpe_tokenizer.py` |
-| 3 | **Transformer** (PyTorch) | DONE | 25 | `phase3_transformer/model.py` + 6 modules |
-| 4 | **Training** pipeline | DONE | 18 | `phase4_training/trainer.py`, `train.py`, configs |
-| 5 | **Generation** & eval | DONE | 17 | `phase5_generation/generate.py`, `kv_cache.py`, `evaluate.py`, `interactive.py` |
-| 6 | **Fine-tune** SmolLM2-360M | DONE | 15 | `phase6_finetune/lora.py`, `finetune.py`, `dpo.py`, `convert_to_mlx.py`, `quantize.py` |
-| 7 | **Agent** (coding assistant) | DONE | 27 | `phase7_agent/agent.py`, `cli.py`, tools, function calling, memory |
+| # | Phase | Status | Tests |
+|---|---|---|---|
+| 1 | **Foundations** (numpy) | DONE | 29 |
+| 2 | **Tokenizer** (BPE) | DONE | 36 |
+| 3 | **Transformer** (PyTorch) | DONE | 25 |
+| 4 | **Training** pipeline | DONE | 18 |
+| 5 | **Generation** & eval | DONE | 17 |
+| 6 | **Fine-tune** SmolLM2-360M | DONE | 15 |
+| 7 | **Agent** (coding assistant) | DONE | 27 |
 
 **ALL PHASES COMPLETE — 167 tests passing**
 
-### What's been built
-- Phase 1: 4 notebooks (NN, backprop, attention, modern components) with terminology glossaries
-- Phase 2: Byte-level BPE tokenizer with train/encode/decode/save/load + special tokens
-- Phase 3: Full Llama-style transformer — RoPE, RMSNorm, GQA, SwiGLU, ~15M params, weight tying
-- Phase 4: Training pipeline — dataset loading (TinyStories/FineWeb-Edu), WSD scheduler, multi-device trainer (CUDA fp16 / MPS fp32), gradient accumulation, checkpointing
-- Phase 5: Generation — temperature/top-k/top-p/repetition penalty, KV-cache, perplexity evaluation, interactive REPL with streaming
-- Phase 6: Fine-tuning — LoRA from scratch, SmolLM2 download, instruction dataset, DPO alignment, MLX conversion + quantization
-- Phase 7: Agent — ReAct+Reflection loop, sandboxed code execution, file/shell tools, structured function calling, conversation memory, CLI
+---
 
-### How to train the model
-```bash
-# Smoke test (any hardware, ~30 seconds)
-.venv/bin/python3 -m phase4_training.train --config phase4_training/configs/tiny.yaml
+## Quick Reference: Commands That Work
 
-# Full training (ROG SCAR 17 recommended, ~2h)
-.venv/bin/python3 -m phase4_training.train --config phase4_training/configs/small.yaml
-```
-
-### How to interact with a trained model
-```bash
-# Interactive REPL (after training)
-.venv/bin/python3 -m phase5_generation.interactive --checkpoint checkpoints/best.pt
-```
-
-### How to fine-tune SmolLM2
-```bash
-# Download model
-.venv/bin/python3 -m phase6_finetune.download_model --model SmolLM2-360M
-
-# Fine-tune with LoRA (ROG SCAR 17, ~3-5h)
-.venv/bin/python3 -m phase6_finetune.finetune
-
-# Quick test (any hardware, ~2 min)
-.venv/bin/python3 -m phase6_finetune.finetune --max-examples 100 --max-steps 50
-
-# Convert to MLX + quantize (MacBook)
-.venv/bin/python3 -m phase6_finetune.convert_to_mlx --input checkpoints/finetune/merged_model
-.venv/bin/python3 -m phase6_finetune.quantize --input checkpoints/mlx_model --bits 4
-```
-
-### How to run the agent
-```bash
-# Demo mode (no model needed — tests the agent framework)
-.venv/bin/python3 -m phase7_agent.cli --demo
-
-# With a HuggingFace model (downloads automatically)
-.venv/bin/python3 -m phase7_agent.cli --hf-model HuggingFaceTB/SmolLM2-360M
-
-# With your fine-tuned MLX model (after Phase 6 training)
-.venv/bin/python3 -m phase7_agent.cli --model checkpoints/mlx_model_q4
-```
-
-### End-to-end pipeline
-1. Train scratch model: `python -m phase4_training.train --config phase4_training/configs/small.yaml` (ROG)
-2. Download SmolLM2: `python -m phase6_finetune.download_model`
-3. Fine-tune with LoRA: `python -m phase6_finetune.finetune` (ROG)
-4. Convert to MLX: `python -m phase6_finetune.convert_to_mlx --input checkpoints/finetune/merged_model` (MacBook)
-5. Quantize: `python -m phase6_finetune.quantize --input checkpoints/mlx_model` (MacBook)
-6. Run agent: `python -m phase7_agent.cli --model checkpoints/mlx_model_q4` (MacBook)
-
-## Setup Guide
-
-### MacBook M4 (primary development + inference)
+### 1. Setup — MacBook (one time)
 
 ```bash
-# 1. Create virtual environment
 uv venv && source .venv/bin/activate
+uv pip install -e ".[dev,mlx]"
 
-# 2. Install dependencies (PyTorch ships with MPS support by default)
-uv pip install -e ".[dev]"
-
-# 3. Install MLX for fast Apple Silicon inference (Phase 6-7)
-uv pip install -e ".[mlx]"
-
-# 4. Verify MPS works
+# Verify
 python3 -c "import torch; print('MPS:', torch.backends.mps.is_available())"
-# Should print: MPS: True
 ```
 
-**Training on MacBook** (slower but works for debugging):
-- Trains in fp32 (MPS doesn't reliably support fp16)
-- Reduce batch size if you get OOM: edit `small.yaml` → `micro_batch_size: 4`
-- Expect ~4-8h for full training vs ~2h on ROG
-- Good for smoke tests: `python3 -m phase4_training.train --config phase4_training/configs/tiny.yaml`
-
-### ASUS ROG SCAR 17 (training machine)
+### 2. Setup — ROG SCAR 17 (one time)
 
 ```bash
-# 1. Create virtual environment
 uv venv && source .venv/bin/activate
 
-# 2. Check CUDA version (look at top-right of output)
-nvidia-smi
-
-# 3. Install PyTorch WITH CUDA support
-#    IMPORTANT: default "uv pip install torch" installs CPU-only!
-#    Match the --index-url to your CUDA version from nvidia-smi:
-#
-#    CUDA 11.8:  --index-url https://download.pytorch.org/whl/cu118
-#    CUDA 12.1+: --index-url https://download.pytorch.org/whl/cu121
-#    CUDA 12.4+: --index-url https://download.pytorch.org/whl/cu124
-#
-#    Our ROG has CUDA 13.2, so we use cu124 (backwards compatible):
+# IMPORTANT: default torch is CPU-only. Install CUDA version:
+nvidia-smi                    # check CUDA version (top-right)
 uv pip install torch --index-url https://download.pytorch.org/whl/cu124
-
-# 4. Install remaining dependencies
 uv pip install -e ".[dev]"
 
-# 5. Verify CUDA works
-python3 -c "import torch; print('CUDA:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0))"
-# Should print:
-#   CUDA: True
-#   GPU: NVIDIA GeForce RTX 3080
+# Verify
+python3 -c "import torch; print('CUDA:', torch.cuda.is_available())"
 ```
 
-**If CUDA shows False after install:**
-```bash
-# Uninstall and reinstall
-uv pip uninstall torch
-uv pip install torch --index-url https://download.pytorch.org/whl/cu124
-```
-
-### Syncing between machines
+### 3. Train scratch model — ROG
 
 ```bash
-# On MacBook: push code
-git add -A && git commit -m "updates" && git push
+# Smoke test (~30 seconds, any hardware)
+python3 -m phase4_training.train --config phase4_training/configs/tiny.yaml
 
-# On ROG: pull and train
-git pull
+# Full training (~2h on ROG)
 python3 -m phase4_training.train --config phase4_training/configs/small.yaml
+```
 
-# After training: push checkpoint info
-git add checkpoints/ && git commit -m "trained model" && git push
+### 4. Test scratch model — ROG or MacBook
 
-# On MacBook: pull checkpoint and run inference
-git pull
+```bash
 python3 -m phase5_generation.interactive --checkpoint checkpoints/best.pt
 ```
 
-## Development Conventions
-- Phase 1: Jupyter notebooks (foundations/visualization)
-- Phase 2-7: Python scripts
-- **Always include tests** — every module gets a test file to ensure robustness
-- Virtual env: `.venv/` (created via `uv venv`)
-- Use `.venv/bin/python3` to run scripts
+### 5. Fine-tune SmolLM2 — ROG
 
-## Testing
 ```bash
-# Run all tests (should pass on both machines)
-.venv/bin/python3 -m pytest tests/ -v
+# Download base model
+python3 -m phase6_finetune.download_model --model SmolLM2-360M
 
-# Run a specific phase's tests
-.venv/bin/python3 -m pytest tests/test_phase1.py -v
+# Fine-tune with LoRA (~3-5h)
+python3 -m phase6_finetune.finetune
 
-# Run notebooks
-.venv/bin/jupyter notebook phase1_foundations/
+# Quick test (~2 min)
+python3 -m phase6_finetune.finetune --max-examples 100 --max-steps 50
 ```
+
+### 6. Deploy to MacBook
+
+Copy `checkpoints/finetune/lora_best.pt` from ROG to MacBook, then:
+
+```bash
+# Reconstruct clean model from base + LoRA weights
+python3 -m phase6_finetune.reconstruct_model --lora checkpoints/finetune/lora_best.pt
+
+# Convert to MLX format
+python3 -m phase6_finetune.convert_to_mlx --input checkpoints/finetune/merged_model
+
+# Quantize to 4-bit (693MB → 198MB)
+python3 -m phase6_finetune.quantize --input checkpoints/mlx_model --bits 4
+```
+
+### 7. Run the coding assistant — MacBook
+
+```bash
+# With fine-tuned MLX model (fastest, 102 tok/s)
+python3 -m phase7_agent.cli --model checkpoints/mlx_model_q4
+
+# With HuggingFace model (no MLX needed, slower)
+python3 -m phase7_agent.cli --hf-model checkpoints/finetune/merged_model
+
+# Demo mode (no model, tests the agent framework)
+python3 -m phase7_agent.cli --demo
+```
+
+### 8. Run tests
+
+```bash
+python3 -m pytest tests/ -v        # all 167 tests
+python3 -m pytest tests/test_phase1.py -v   # specific phase
+```
+
+### 9. Run notebooks
+
+```bash
+jupyter notebook phase1_foundations/
+```
+
+---
+
+## Architecture (2025-era, NOT GPT-2)
+
+| Component | What we use | Old approach |
+|---|---|---|
+| Position encoding | **RoPE** | Learned embeddings |
+| Normalization | **RMSNorm** | LayerNorm |
+| FFN activation | **SwiGLU** | GELU |
+| Attention | **GQA** (6Q/2KV heads) | Standard MHA |
+| LR schedule | **WSD** (warmup-stable-decay) | Cosine decay |
+| Fine-tuning | **LoRA** (1% params) | Full fine-tuning |
+| Alignment | **DPO** | RLHF |
 
 ## File Structure
+
 ```
-phase1_foundations/   — Jupyter notebooks (numpy only)
-phase2_tokenizer/    — BPE tokenizer from scratch
-phase3_transformer/  — Modern Llama-style architecture
-phase4_training/     — Training pipeline
-phase5_generation/   — Decoding strategies + KV-cache
-phase6_finetune/     — LoRA + DPO on SmolLM2-360M
-phase7_agent/        — ReAct agent with tool use
-tests/               — Test files for all phases
+phase1_foundations/   — 4 Jupyter notebooks (numpy): NN, backprop, attention, modern components
+phase2_tokenizer/    — Byte-level BPE tokenizer from scratch
+phase3_transformer/  — Llama-style model: config, rope, rmsnorm, attention, feedforward, block, model
+phase4_training/     — Dataset loader, WSD scheduler, trainer (CUDA/MPS), CLI + YAML configs
+phase5_generation/   — Top-k/top-p/temperature, KV-cache, perplexity eval, interactive REPL
+phase6_finetune/     — SmolLM2 download, LoRA, instruction dataset, DPO, MLX convert, quantize
+phase7_agent/        — ReAct+Reflection agent, tools (code/file/shell), function calling, memory, CLI
+tests/               — 167 tests across 6 test files
 ```

@@ -12,6 +12,8 @@ dependencies = [
     "matplotlib",
     "huggingface-hub",
     "transformers",
+    "accelerate",
+    "safetensors",
 ]
 
 [project.optional-dependencies]
