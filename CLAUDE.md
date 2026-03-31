@@ -70,14 +70,17 @@ python3 -m phase5_generation.interactive --checkpoint checkpoints/best.pt
 ### 5. Fine-tune SmolLM2 — ROG
 
 ```bash
-# Download base model
+# Download base model (pick one)
 python3 -m phase6_finetune.download_model --model SmolLM2-360M
+python3 -m phase6_finetune.download_model --model SmolLM2-1.7B
+python3 -m phase6_finetune.download_model --list   # see all options
 
-# Fine-tune with LoRA (~3-5h)
-python3 -m phase6_finetune.finetune
+# Fine-tune with LoRA (~3-5h for 360M, longer for 1.7B)
+python3 -m phase6_finetune.finetune --model SmolLM2-360M
+python3 -m phase6_finetune.finetune --model SmolLM2-1.7B --batch-size 2 --grad-accum 8
 
 # Quick test (~2 min)
-python3 -m phase6_finetune.finetune --max-examples 100 --max-steps 50
+python3 -m phase6_finetune.finetune --model SmolLM2-360M --max-examples 100 --max-steps 50
 ```
 
 ### 6. Deploy to MacBook
@@ -86,7 +89,8 @@ Copy `checkpoints/finetune/lora_best.pt` from ROG to MacBook, then:
 
 ```bash
 # Reconstruct clean model from base + LoRA weights
-python3 -m phase6_finetune.reconstruct_model --lora checkpoints/finetune/lora_best.pt
+# --base-model MUST match whatever you used in step 5
+python3 -m phase6_finetune.reconstruct_model --lora checkpoints/finetune/lora_best.pt --base-model SmolLM2-360M
 
 # Convert to MLX format
 python3 -m phase6_finetune.convert_to_mlx --input checkpoints/finetune/merged_model
