@@ -58,9 +58,20 @@ def create_mlx_generate_fn(model_path):
     def generate(prompt):
         response = mlx_generate(
             model, tokenizer, prompt=prompt,
-            max_tokens=256,
+            max_tokens=150,
         )
-        return response if response else ""
+        if not response:
+            return ""
+
+        # Small models don't stop cleanly — they hallucinate extra turns.
+        # Cut at the first fake "USER:" or repeated "CODE:" block.
+        stop_markers = ["\nUSER:", "\nUser:", "\n\nUSER", "\n\n\n"]
+        for marker in stop_markers:
+            idx = response.find(marker)
+            if idx != -1:
+                response = response[:idx]
+
+        return response.strip()
 
     return generate, tokenizer
 
