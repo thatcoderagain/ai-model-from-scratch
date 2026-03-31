@@ -842,3 +842,205 @@ Strategy: keep system prompt (always), keep recent messages, drop oldest when fu
 | 7 | ReAct agent with tool use | 100% |
 
 **167 tests. 102 tokens/sec on MacBook M4. 262MB memory footprint.**
+
+---
+
+## 15. Future Scope: Where to Go From Here
+
+### The Industry Shift
+
+AI is moving from "bigger models in the cloud" to "smaller models everywhere":
+
+- **Privacy**: companies don't want their code/data sent to external APIs
+- **Cost**: API calls at scale cost millions per year
+- **Latency**: on-device = instant, cloud = network round-trip
+- **Offline**: phones, cars, robots can't always reach the internet
+- **Regulation**: EU, healthcare, finance require data to stay local
+
+### Path 1: On-Device AI Engineer
+
+Build AI that runs on phones, laptops, IoT devices — no cloud needed.
+
+**What you'd do:**
+- Take a 7B model → quantize to 4-bit → run on phone/laptop
+- Optimize inference speed (KV-cache, speculative decoding, batching)
+- Build custom MLX/GGUF pipelines for Apple devices
+- Use knowledge distillation: train a tiny model to mimic a large one
+
+**What to learn next:**
+- llama.cpp (C++ inference engine, runs on anything)
+- CoreML / ONNX Runtime (mobile deployment)
+- Speculative decoding (use a tiny draft model to speed up a big model)
+- Knowledge distillation (train SmolLM-135M to mimic Llama-70B)
+
+**Who needs this:** Apple, Google (on-device Gemini Nano), Samsung, any mobile app company
+
+### Path 2: Domain-Specific Model Builder
+
+Fine-tune models for specific industries where generic models fail.
+
+| Domain | Why generic models fail | What you'd build |
+|---|---|---|
+| Healthcare | Can't use cloud (HIPAA). Generic models hallucinate medical facts. | Fine-tune on medical literature, deploy on-premise |
+| Legal | Confidential documents can't leave the firm | Fine-tune on legal precedents, run locally |
+| Finance | Trading signals can't have cloud latency | Fine-tune on financial data, edge deployment |
+| Internal codebase | Claude doesn't know your internal APIs | Fine-tune on your repo, run as internal copilot |
+
+**The workflow (you already know every step):**
+1. Collect domain data (documents, code, Q&A pairs)
+2. Fine-tune with LoRA (Phase 6)
+3. Align with DPO using domain expert preferences
+4. Quantize and deploy on customer's hardware
+
+**What to learn next:**
+- Data curation and cleaning (the real bottleneck)
+- Evaluation frameworks (how to measure if your medical model is safe)
+- RAG (Retrieval Augmented Generation) — combine model with document search
+
+### Path 3: Model Optimization / Compression
+
+Make models smaller and faster without losing quality.
+
+| Technique | What it does | Reduction |
+|---|---|---|
+| **Quantization** (done) | Reduce weight precision | 4x smaller |
+| **Pruning** | Remove unimportant weights/neurons entirely | 2-10x smaller |
+| **Knowledge distillation** | Train small model to mimic large model | 10-100x smaller |
+| **Architecture search** | Find optimal layer sizes for a given compute budget | Varies |
+| **Speculative decoding** | Tiny draft model proposes tokens, big model verifies | 2-4x faster |
+| **MoE** (Mixture of Experts) | Only activate relevant expert sub-networks per token | Use 15% of params per token |
+
+**What to learn next:**
+- Structured pruning (remove entire attention heads or layers)
+- Knowledge distillation training loops
+- Neural Architecture Search (NAS)
+- Flash Attention, PagedAttention (memory-efficient attention)
+
+### Path 4: AI Product Builder
+
+Ideas that are practical with current skills:
+
+**Local Code Review Bot**
+- Reads git diffs, suggests improvements
+- Runs entirely on MacBook, no API costs
+- Uses: fine-tuned code model + agent framework (Phase 7)
+
+**Private Document Q&A**
+- Company uploads documents, asks questions, gets answers
+- Add RAG: embed documents → retrieve relevant chunks → feed to model
+- Data never leaves their network
+
+**Automated Test Writer**
+- Reads a function → writes pytest tests → runs them → iterates until passing
+- Uses: code executor + agent loop (Phase 7)
+
+**Teaching Platform**
+- This entire project as an interactive course
+- Students build their own LLM step by step
+- Sell on Udemy or your own platform
+
+### Path 5: Open Source Contributions
+
+| Project | What you could contribute | Relevant skills |
+|---|---|---|
+| **llama.cpp** | Optimize inference, add new quant formats | Model architecture, C++ |
+| **MLX** | Add new model support, improve quantization | Apple Silicon, model conversion |
+| **HuggingFace transformers** | Fix bugs, add new architectures | PyTorch, model internals |
+| **vLLM** | Optimize serving, PagedAttention | KV-cache, attention optimization |
+| **Your own project** | Publish this project as a learning resource | Everything you built |
+
+---
+
+## 16. Concrete Next Projects
+
+### Project A: Better Local Coding Assistant (2-3 weeks)
+
+Take what you built and make it actually useful:
+
+1. Upgrade to SmolLM2-1.7B (bigger model, better code)
+2. Add RAG: embed your codebase, retrieve relevant files before generating
+3. Add git integration: read diffs, suggest commit messages
+4. Fine-tune on YOUR code: collect your own coding patterns as training data
+5. Package it: make it installable with `pip install your-local-copilot`
+
+### Project B: Knowledge Distillation Pipeline (2-4 weeks)
+
+Build a tool that creates small specialized models from large ones:
+
+```
+Input:  Large model (Llama-70B via API) + task description
+Process: Generate training data with the large model, train the small one
+Output: Small model (1B) that does that one task well
+```
+
+This is how many companies actually build production models.
+
+### Project C: Model Compression Toolkit (3-4 weeks)
+
+Build a toolkit that takes any HuggingFace model and:
+1. Prunes unnecessary attention heads (measure which heads matter)
+2. Distills knowledge from the full model into a smaller architecture
+3. Quantizes to 4-bit
+4. Benchmarks quality vs size at each step
+5. Outputs a deployment-ready model
+
+---
+
+## 17. Key Optimization Techniques for On-Device AI
+
+### Speculative Decoding
+
+Use a tiny "draft" model (e.g., 135M) to propose several tokens at once.
+The large model (e.g., 1.7B) verifies them in a single forward pass.
+If the draft was right (often is for common patterns), you got multiple tokens for the cost of one.
+
+**Result:** 2-4x speedup with zero quality loss.
+
+### KV-Cache Optimization
+
+Standard KV-cache grows linearly with sequence length → eventually fills memory.
+
+Solutions:
+- **Sliding window attention**: only cache last N tokens (Mistral uses this)
+- **PagedAttention**: manage cache like virtual memory pages (vLLM)
+- **GQA**: fewer KV heads = smaller cache (what we built)
+
+### Pruning
+
+Not all attention heads are equally important. Research shows you can remove 30-50% of heads with <1% quality loss.
+
+**Structured pruning**: remove entire heads/layers (easy to deploy)
+**Unstructured pruning**: zero out individual weights (needs sparse hardware)
+
+### Knowledge Distillation
+
+```
+Teacher: Llama-70B (huge, accurate, slow)
+Student: Your 1B model (small, fast)
+
+1. Run teacher on thousands of prompts
+2. Collect teacher's output probability distributions
+3. Train student to match teacher's distributions (softer target than hard labels)
+4. Student learns to approximate teacher at 1/70th the size
+```
+
+### Flash Attention
+
+Standard attention: O(N²) memory (stores full attention matrix)
+Flash Attention: O(N) memory (computes attention in tiles, never materializes full matrix)
+
+**Result:** 2-4x faster, handles much longer sequences. Available on CUDA via PyTorch's `scaled_dot_product_attention`.
+
+---
+
+## 18. Career Relevance
+
+| Role | What they do | How this project helps |
+|---|---|---|
+| **ML Engineer** | Train and deploy models | You built the full training + deployment pipeline |
+| **MLOps Engineer** | Infrastructure for model serving | You understand model formats, quantization, device targeting |
+| **AI Product Engineer** | Build products using models | You built an agent with tools, memory, CLI |
+| **On-Device AI Engineer** | Optimize models for edge | You did quantization, MLX conversion, understand architecture trade-offs |
+| **Research Engineer** | Push state of the art | You understand the papers and can implement from scratch |
+
+**Your competitive advantage:** Most people use `model.generate()` and have no idea what's inside. You built every layer from numpy to a deployed agent. In interviews, when someone asks "how does attention work?" — you don't recite a definition, you say "I implemented it from scratch, here's the repo."
